@@ -1,3 +1,3 @@
 # Wine-Merchants
 
-A program for a wine merchant to track transactions.
+:wine_glass: :pound: A program for a wine merchant to track transactions.
