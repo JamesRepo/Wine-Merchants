@@ -2,6 +2,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.math.BigDecimal;
+
 /**
  * Class to handle the GUI. 
  * It will handle user interaction and what the user can see. (Controller and View) 
@@ -15,48 +17,31 @@ public class GUI extends JFrame implements ActionListener {
 	private JLabel nameLabel, quantityLabel, priceLabel, purchaseLabel, transactionLabel, balanceLabel;
 	private JTextField nameText, quantityText, priceText, purchaseText, transactionText, balanceText;
 	private JPanel north, centre, south;
-	// Variables for use with Wine object
-	private String wineName;
-	private int wineQuantity;
-	private double winePrice;
 	// Variables for use with Customer Account object
-	private CustomerAccount newAccount;
-	private double customerBalance;
-	// Variables for updating the GUI
-	private double transaction;
-	private double newBalance;
+	private final CustomerAccount customerAccount;
+	private final WineService wineService;
 	/**
 	 * Constructor.
-	 * Outlines size, location, close operation etc for GUI. 
+	 * Outlines size, location, close operation etc. for GUI.
 	 * Also calls methods to instantiate and layout.
-	 * 
-	 * Arguments:
-	 * @param account
 	 */
 	public GUI(CustomerAccount account) {
+		this.wineService = new WineServiceImpl();
 		// Set up of GUI
-		this.newAccount = account;
-		this.customerBalance = newAccount.getBalance();
+		this.customerAccount = account;
 		setVisible(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setSize(800, 200);
 		setLocation(100, 100);
-		setTitle("Wine Merchants: " + newAccount.getName());
-		componentInstansiate();
+		setTitle("Wine Merchants: " + this.customerAccount.getName());
+		componentInstantiate();
 		guiLayout();
-		setBalance(customerBalance);
-		// Initialise variables
-		wineName = "";
-		wineQuantity = 0;
-		winePrice = 0;
-		customerBalance = 0;
-		transaction = 0;
-		newBalance = 0;
+		setBalance(this.customerAccount.getBalance());
 	}
 	/**
-	 * This method handles the instantiation of all of the components
+	 * This method handles the instantiation of all the components
 	 */
-	public void componentInstansiate() {
+	public void componentInstantiate() {
 		// Create buttons
 		saleButton = new JButton("Process Sale");
 		returnButton = new JButton("Process Return");
@@ -115,13 +100,9 @@ public class GUI extends JFrame implements ActionListener {
 		add(south, BorderLayout.SOUTH);
 	}
 	/**
-	 * Method for event handling. 
-	 * Certain methods are called whatever button is pressed. These are either side of the if/else statement.
-	 * The if/else statement specifies which method is used depending on the button pressed.
+	 * Method for event handling.
 	 */
 	public void actionPerformed(ActionEvent e) {
-		// Process is always called, gathers the input from text fields.
-		process();
 		// If / else to determine which button was pressed.
 		if (e.getSource() == saleButton) {
 			processSale();
@@ -130,87 +111,87 @@ public class GUI extends JFrame implements ActionListener {
 			processReturn();
 		}
 		// Updates the balance on the GUI.
-		newBalance = newAccount.getBalance();
-		setBalance(newBalance);
+		setBalance(customerAccount.getBalance());
 		// Clears the text fields so new data can be entered. Last thing done when a button is pressed.
 		clearFields();
 	}
 	/**
-	 * Method called if either button is pressed.
-	 * It retrieves the input from the user from the text fields.
-	 * It also checks that the data entered in the price and quantity boxes is correct (i.e. a number).
-	 * Creates a wine object to store the data.
+	 * This method is called if the process sale button is pressed.
 	 */
-	public void process() {
+	public void processSale() {
+		Wine wine = getWine();
+		int quantity = getWineQuantity();
+		if (wine != null) {
+			BigDecimal transactionAmount = wineService.processSale(wine.getPrice(), quantity);
+			customerAccount.setBalance(customerAccount.getBalance().subtract(transactionAmount));
+			setTransaction(transactionAmount);
+		}
+	}
+	/**
+	 * Method called if the process return button is pressed.
+	 */
+	public void processReturn() {
+		Wine wine = getWine();
+		int quantity = getWineQuantity();
+		if (wine != null) {
+			BigDecimal transactionAmount = wineService.processReturn(wine.getPrice(), quantity);
+			customerAccount.setBalance(customerAccount.getBalance().add(transactionAmount));
+			setTransaction(transactionAmount);
+		}
+	}
+
+	private Wine getWine() {
 		// Retrieves the name of the wine and sets the label to that name.
-		wineName = nameText.getText();
+		String wineName = nameText.getText();
+		//wineName = nameText.getText();
 		purchaseText.setText(wineName);
 		// Try catch block to make sure that data is valid
+		BigDecimal winePrice;
 		try {
-			winePrice = Double.parseDouble(priceText.getText());			
+			winePrice = new BigDecimal(priceText.getText());
 		}
 		catch(NumberFormatException e) {
 			// J Option Pane to show error message
 			JOptionPane.showMessageDialog(null, "Invalid data entered for wine price", "Error", JOptionPane.ERROR_MESSAGE);
-		}	
-		// Try catch block to make sure data is valid
-		try {
-			wineQuantity = Integer.parseInt(quantityText.getText());			
+			return null;
+		}
+		// Creates a wine object with the data that has been retrieved
+		return new Wine(wineName, winePrice);
+	}
 
+	private int getWineQuantity() {
+		// Try catch block to make sure data is valid
+		int wineQuantity = 0;
+		try {
+			wineQuantity = Integer.parseInt(quantityText.getText());
 		}
 		catch(NumberFormatException e) {
 			// J Option Pane to show error message
 			JOptionPane.showMessageDialog(null, "Invalid data entered for wine quantity", "Error", JOptionPane.ERROR_MESSAGE);
-		}	
-		// Creates a wine object with the data that has been retrieved
-		Wine wine = new Wine(wineName, winePrice, wineQuantity);
+		}
+		return wineQuantity;
 	}
-	/**
-	 * This method is called if the process sale button is pressed.
-	 * It calls the method in the Customer Account class which handles the actual mathematics.
-	 * It then calls another method which is used to display how much the transaction is. 
-	 */
-	public void processSale() {
-		// Calls process sale method using the data gathered from the process method.
-		transaction = newAccount.processSale(winePrice, wineQuantity);
-		// Method for updating the GUI.
-		setTransaction(transaction);
-	}
-	/**
-	 * Method called if the process return button is pressed. 
-	 * Calls a method in Customer Account class which handles the actual mathematics. 
-	 * Then calls a method to update the GUI. 
-	 */
-	public void processReturn() {
-		transaction = newAccount.processReturn(winePrice, wineQuantity);
-		setTransaction(transaction);		
-	}
+
 	/**
 	 * Method called after the processing in the event handling method.
 	 * It updates the balance on the GUI.
 	 * If the balance is above zero then the balance is published as is.
 	 * If the balance is below zero it is not displayed as a negative but with a CR next to it.
 	 * The formatting is also provided so that there are always two decimal places and it can accept
-	 * numbers up to ten numbers long before the decimal place. 
-	 * 
-	 * @param bal
+	 * numbers up to ten numbers long before the decimal place.
 	 */
-	public void setBalance(double bal) {
-		if (bal >= 0) {
+	public void setBalance(BigDecimal bal) {
+		if (bal.compareTo(BigDecimal.ZERO) > 0) {
 			balanceText.setText(String.format("%10.2f", bal));
 		}
-		else if (bal < 0) {
-			// Call this math method to make the negative number positive again.
-			bal = Math.abs(bal);
-			balanceText.setText(String.format("%10.2f CR", bal));
+		else if (bal.compareTo(BigDecimal.ZERO) < 0) {
+			balanceText.setText(String.format("%10.2f CR", bal.abs()));
 		}
 	}
 	/**
-	 * Method used to update the GUI with the amount of the transaction. 
-	 * 
-	 * @param trans
+	 * Method used to update the GUI with the amount of the transaction
 	 */
-	public void setTransaction(double trans) {
+	public void setTransaction(BigDecimal trans) {
 		transactionText.setText(String.format("%10.2f", trans));
 	}
 	/**
